@@ -33,6 +33,9 @@ export const initSocket = (httpServer: HttpServer): Server => {
     const userId = (socket as any).userId;
     console.log(`User connected: ${userId} (socket: ${socket.id})`);
 
+    // Join user-specific room for notifications
+    socket.join(`user:${userId}`);
+
     handleDocumentEvents(socket, userId);
     handlePresenceEvents(socket, userId);
 
