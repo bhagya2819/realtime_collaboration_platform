@@ -8,6 +8,7 @@ import {
   updateDocument,
   archiveDocument,
 } from '../controllers/documentController';
+import { joinWorkspace } from '../controllers/inviteController';
 import { authenticate } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import { documentCreateSchema, documentUpdateSchema } from '../validators';
@@ -17,13 +18,9 @@ const router = Router();
 router.use('/auth', authRoutes);
 router.use('/workspaces', workspaceRoutes);
 
-router.post(
-  '/workspaces/:id/documents',
-  authenticate,
-  validate(documentCreateSchema),
-  createDocument
-);
+router.post('/workspaces/:id/documents', authenticate, validate(documentCreateSchema), createDocument);
 router.get('/workspaces/:id/documents', authenticate, getDocuments);
+router.post('/workspaces/join', authenticate, joinWorkspace);
 
 router.get('/documents/:id', authenticate, getDocument);
 router.patch('/documents/:id', authenticate, validate(documentUpdateSchema), updateDocument);
