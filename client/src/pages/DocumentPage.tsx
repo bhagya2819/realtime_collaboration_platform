@@ -7,6 +7,7 @@ import api from '../services/api';
 import { Document } from '../types';
 import { useSocket } from '../hooks/useSocket';
 import { usePresenceStore } from '../stores/presenceStore';
+import { CommentPanel } from '../components/comments/CommentPanel';
 
 const CURSOR_COLORS = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
@@ -172,7 +173,7 @@ export const DocumentPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm sticky top-0 z-20">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate(`/workspaces/${document?.workspace}`)}
@@ -205,13 +206,17 @@ export const DocumentPage: React.FC = () => {
         </div>
       </header>
 
-      <div className="max-w-4xl mx-auto flex gap-4 px-4 py-8">
-        <main className="flex-1">
+      <div className="max-w-6xl mx-auto flex gap-4 px-4 py-8">
+        <main className="flex-1 min-w-0">
           <div className="bg-white rounded-lg shadow-lg p-8 min-h-[70vh] relative">
             <RemoteCursors editor={editor} />
             <EditorContent editor={editor} className="prose max-w-none" />
           </div>
         </main>
+
+        <aside className="w-72 shrink-0 max-h-[80vh] overflow-hidden">
+          <CommentPanel documentId={documentId!} />
+        </aside>
 
         <aside className="w-48 shrink-0">
           <div className="bg-white rounded-lg shadow p-4 sticky top-20">
