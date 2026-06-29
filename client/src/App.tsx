@@ -5,6 +5,7 @@ import { RegisterPage } from './pages/RegisterPage';
 import { WorkspaceListPage } from './pages/WorkspaceListPage';
 import { DocumentListPage } from './pages/DocumentListPage';
 import { DocumentPage } from './pages/DocumentPage';
+import { InvitePage } from './pages/InvitePage';
 import { useAuthStore } from './stores/authStore';
 
 const queryClient = new QueryClient();
@@ -43,6 +44,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <DocumentPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/join"
+            element={
+              <ProtectedRoute>
+                <InvitePage />
               </ProtectedRoute>
             }
           />

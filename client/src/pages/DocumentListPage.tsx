@@ -10,6 +10,8 @@ export const DocumentListPage: React.FC = () => {
   const navigate = useNavigate();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [workspaceName, setWorkspaceName] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
+  const [showInvite, setShowInvite] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [error, setError] = useState('');
@@ -30,6 +32,13 @@ export const DocumentListPage: React.FC = () => {
     } catch {}
   };
 
+  const fetchInviteCode = async () => {
+    try {
+      const { data } = await api.post(`/workspaces/${workspaceId}/invite`);
+      setInviteCode(data.inviteCode);
+    } catch {}
+  };
+
   useEffect(() => {
     fetchDocuments();
     fetchWorkspace();
@@ -47,6 +56,11 @@ export const DocumentListPage: React.FC = () => {
     }
   };
 
+  const handleShowInvite = async () => {
+    await fetchInviteCode();
+    setShowInvite(true);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm">
@@ -60,12 +74,37 @@ export const DocumentListPage: React.FC = () => {
             </button>
             <h1 className="text-xl font-bold">{workspaceName || 'Documents'}</h1>
           </div>
+          <Button variant="secondary" onClick={handleShowInvite}>
+            Invite Members
+          </Button>
         </div>
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8">
         {error && (
           <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg mb-4">{error}</div>
+        )}
+
+        {showInvite && inviteCode && (
+          <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-6 flex items-center justify-between">
+            <div>
+              <span className="text-sm text-blue-700 font-medium">Invite Code: </span>
+              <span className="text-lg font-mono tracking-wider">{inviteCode}</span>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  navigator.clipboard.writeText(inviteCode);
+                }}
+              >
+                Copy
+              </Button>
+              <Button variant="secondary" onClick={() => setShowInvite(false)}>
+                ×
+              </Button>
+            </div>
+          </div>
         )}
 
         <div className="flex justify-between items-center mb-6">
