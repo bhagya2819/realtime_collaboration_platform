@@ -23,3 +23,10 @@ export const documentUpdateSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200).optional(),
   content: z.any().optional(),
 });
+
+export const commentSchema = z.object({
+  text: z.string().min(1, 'Comment text is required').max(5000),
+  selectionReference: z.any().optional(),
+  threadParent: z.string().optional(),
+  mentions: z.array(z.string()).optional(),
+});

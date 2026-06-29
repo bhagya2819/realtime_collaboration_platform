@@ -31,3 +31,28 @@ export interface Document {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface Comment {
+  _id: string;
+  document: string;
+  user: { _id: string; name: string; email: string };
+  text: string;
+  selectionReference?: object;
+  threadParent?: string | null;
+  resolved: boolean;
+  mentions: { _id: string; name: string; email: string }[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Notification {
+  _id: string;
+  recipient: string;
+  actor: { _id: string; name: string; email: string };
+  type: 'mention' | 'comment' | 'invite' | 'share';
+  message: string;
+  targetType: string;
+  targetId: string;
+  isRead: boolean;
+  createdAt: string;
+}
