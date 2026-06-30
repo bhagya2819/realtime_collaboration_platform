@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
 import { DocumentModel, Workspace } from '../models';
+import { logActivity } from '../services/logActivity';
+import { createSnapshot } from './versionController';
+import { getDocumentWithCache, invalidateDocumentCache } from '../services/documentCache';
 
 const pid = (req: Request): string => req.params.id as string;
 
@@ -22,6 +25,15 @@ export const createDocument = async (req: Request, res: Response): Promise<void>
       content: { type: 'doc', content: [] },
       createdBy: req.userId,
       lastEditedBy: req.userId,
+    });
+
+    await logActivity({
+      workspace: pid(req),
+      user: req.userId!,
+      action: 'document.created',
+      targetType: 'document',
+      targetId: document._id.toString(),
+      metadata: { title },
     });
 
     res.status(201).json({ document });
@@ -59,9 +71,7 @@ export const getDocuments = async (req: Request, res: Response): Promise<void> =
 
 export const getDocument = async (req: Request, res: Response): Promise<void> => {
   try {
-    const document = await DocumentModel.findById(pid(req))
-      .populate('createdBy', 'name')
-      .populate('lastEditedBy', 'name');
+    const document = await getDocumentWithCache(pid(req));
 
     if (!document) {
       res.status(404).json({ message: 'Document not found' });
@@ -86,6 +96,19 @@ export const updateDocument = async (req: Request, res: Response): Promise<void>
     if (!document) {
       res.status(404).json({ message: 'Document not found' });
       return;
+    }
+
+    if (req.body.content !== undefined) {
+      await logActivity({
+        workspace: document.workspace.toString(),
+        user: req.userId!,
+        action: 'document.edited',
+        targetType: 'document',
+        targetId: document._id.toString(),
+      });
+
+      createSnapshot(document._id.toString(), document.content, document.title, req.userId!);
+      invalidateDocumentCache(document._id.toString());
     }
 
     res.json({ document });

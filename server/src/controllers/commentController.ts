@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
-import { CommentModel, NotificationModel, User } from '../models';
+import { CommentModel, NotificationModel, User, DocumentModel } from '../models';
 import { io } from '../socket';
+import { logActivity } from '../services/logActivity';
 
 const pid = (req: Request): string => req.params.id as string;
 
@@ -56,6 +57,17 @@ export const addComment = async (req: Request, res: Response): Promise<void> => 
       documentId: pid(req),
       comment,
     });
+
+    const doc = await DocumentModel.findById(pid(req)).select('workspace');
+    if (doc) {
+      await logActivity({
+        workspace: doc.workspace.toString(),
+        user: req.userId!,
+        action: 'comment.added',
+        targetType: 'comment',
+        targetId: comment._id.toString(),
+      });
+    }
 
     res.status(201).json({ comment });
   } catch {

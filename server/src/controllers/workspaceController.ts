@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { Workspace } from '../models';
+import { logActivity } from '../services/logActivity';
 
 const pid = (req: Request): string => req.params.id as string;
 
@@ -69,6 +70,15 @@ export const updateWorkspace = async (req: Request, res: Response): Promise<void
       res.status(404).json({ message: 'Workspace not found or not authorized' });
       return;
     }
+
+    await logActivity({
+      workspace: pid(req),
+      user: req.userId!,
+      action: 'workspace.updated',
+      targetType: 'workspace',
+      targetId: workspace._id.toString(),
+      metadata: { name },
+    });
 
     res.json({ workspace });
   } catch {
