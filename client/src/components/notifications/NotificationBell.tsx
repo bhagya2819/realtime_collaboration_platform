@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
-import { Notification } from '../../types';
+import type { Notification } from '../../types';
 import { useSocket } from '../../hooks/useSocket';
 
 export const NotificationBell: React.FC = () => {

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import api from '../services/api';
-import { Comment } from '../types';
-import { Button } from './common/Button';
-import { useSocket } from '../hooks/useSocket';
+import api from '../../services/api';
+import type { Comment } from '../../types';
+import { Button } from '../common/Button';
+import { useSocket } from '../../hooks/useSocket';
 
 interface Props {
   documentId: string;

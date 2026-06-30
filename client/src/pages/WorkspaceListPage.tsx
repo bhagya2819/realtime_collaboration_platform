@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import { Workspace } from '../types';
+import type { Workspace } from '../types';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { useAuthStore } from '../stores/authStore';

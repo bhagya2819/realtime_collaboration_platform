@@ -26,9 +26,21 @@ export const handleDocumentEvents = (socket: Socket, userId: string): void => {
       socketId: socket.id,
     });
 
+    // Request sync from existing clients so new joiner gets current content
+    socket.to(documentId).emit('request-sync', { documentId, requesterId: socket.id });
+
     socket.emit('presence-update', {
       documentId,
       users: Array.from(state.users.entries()).map(([sid, u]) => ({ socketId: sid, ...u })),
+    });
+  });
+
+  socket.on('sync-content', ({ documentId, content, targetSocketId }: { documentId: string; content: any; targetSocketId: string }) => {
+    io.to(targetSocketId).emit('receive-changes', {
+      documentId,
+      changes: { content },
+      userId,
+      socketId: socket.id,
     });
   });
 
