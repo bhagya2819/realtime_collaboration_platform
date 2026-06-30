@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
+import { VersionDiffViewer } from './VersionDiffViewer';
 
 interface Version {
   _id: string;
@@ -17,6 +18,7 @@ interface Props {
 export const VersionHistoryPanel: React.FC<Props> = ({ documentId, onRestore }) => {
   const [versions, setVersions] = useState<Version[]>([]);
   const [restoring, setRestoring] = useState<string | null>(null);
+  const [diffVersionId, setDiffVersionId] = useState<string | null>(null);
 
   const fetchVersions = async () => {
     try {
@@ -38,6 +40,10 @@ export const VersionHistoryPanel: React.FC<Props> = ({ documentId, onRestore }) 
       setRestoring(null);
     }
   };
+
+  if (diffVersionId) {
+    return <VersionDiffViewer documentId={documentId} versionId={diffVersionId} onClose={() => setDiffVersionId(null)} />;
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -67,13 +73,21 @@ export const VersionHistoryPanel: React.FC<Props> = ({ documentId, onRestore }) 
             </div>
             <div className="text-gray-500 truncate">{v.title}</div>
             <div className="text-gray-400 text-[10px]">{v.savedBy?.name || 'Unknown'}</div>
-            <button
-              onClick={() => handleRestore(v._id)}
-              disabled={restoring === v._id}
-              className="mt-1 text-[10px] bg-blue-500 text-white px-2 py-0.5 rounded hover:bg-blue-600 disabled:opacity-50"
-            >
-              {restoring === v._id ? 'Restoring...' : 'Restore'}
-            </button>
+            <div className="flex gap-1 mt-1">
+              <button
+                onClick={() => handleRestore(v._id)}
+                disabled={restoring === v._id}
+                className="text-[10px] bg-blue-500 text-white px-2 py-0.5 rounded hover:bg-blue-600 disabled:opacity-50"
+              >
+                {restoring === v._id ? 'Restoring...' : 'Restore'}
+              </button>
+              <button
+                onClick={() => setDiffVersionId(v._id)}
+                className="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded hover:bg-gray-300"
+              >
+                Diff
+              </button>
+            </div>
           </div>
         ))}
       </div>
