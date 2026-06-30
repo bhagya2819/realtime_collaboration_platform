@@ -1,7 +1,40 @@
 import { Request, Response } from 'express';
+import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { User } from '../models';
-import { generateAccessToken, generateRefreshToken } from '../utils/jwt';
+import {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyRefreshToken,
+  TokenPayload,
+} from '../utils/jwt';
+import { env } from '../config/env';
+import { getRedis } from '../config/redis';
+
+const blacklistToken = async (token: string): Promise<void> => {
+  try {
+    const redis = getRedis();
+    const decoded = jwt.decode(token) as { exp?: number } | null;
+    if (decoded?.exp) {
+      const ttl = Math.max(0, decoded.exp - Math.floor(Date.now() / 1000));
+      if (ttl > 0) {
+        await redis.set(`bl:${token}`, '1', 'EX', ttl);
+      }
+    }
+  } catch {
+    // Redis unavailable — skip blacklisting
+  }
+};
+
+const isBlacklisted = async (token: string): Promise<boolean> => {
+  try {
+    const redis = getRedis();
+    const result = await redis.get(`bl:${token}`);
+    return result !== null;
+  } catch {
+    return false;
+  }
+};
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -74,6 +107,64 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-export const logout = async (_req: Request, res: Response): Promise<void> => {
-  res.json({ message: 'Logged out successfully' });
+export const logout = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+      const accessToken = authHeader.split(' ')[1];
+      await blacklistToken(accessToken);
+    }
+
+    const { refreshToken } = req.body;
+    if (refreshToken) {
+      await blacklistToken(refreshToken);
+    }
+
+    res.json({ message: 'Logged out successfully' });
+  } catch {
+    res.status(500).json({ message: 'Logout failed' });
+  }
+};
+
+export const refresh = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+      res.status(400).json({ message: 'Refresh token required' });
+      return;
+    }
+
+    let payload: TokenPayload;
+    try {
+      payload = verifyRefreshToken(refreshToken);
+    } catch {
+      res.status(401).json({ message: 'Invalid or expired refresh token' });
+      return;
+    }
+
+    const blacklisted = await isBlacklisted(refreshToken);
+    if (blacklisted) {
+      res.status(401).json({ message: 'Refresh token has been revoked' });
+      return;
+    }
+
+    const user = await User.findById(payload.userId);
+    if (!user) {
+      res.status(401).json({ message: 'User not found' });
+      return;
+    }
+
+    await blacklistToken(refreshToken);
+
+    const tokenPayload = { userId: user._id.toString() };
+    const newAccessToken = generateAccessToken(tokenPayload);
+    const newRefreshToken = generateRefreshToken(tokenPayload);
+
+    res.json({
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+    });
+  } catch {
+    res.status(500).json({ message: 'Token refresh failed' });
+  }
 };
