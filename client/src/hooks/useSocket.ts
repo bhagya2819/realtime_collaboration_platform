@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-const SOCKET_URL = '';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || '';
 
 export const useSocket = () => {
   const socketRef = useRef<Socket | null>(null);
@@ -22,8 +22,7 @@ export const useSocket = () => {
 
     socket.on('connect', () => {
       eventMapRef.current.forEach((callbacks, event) => {
-        callbacks.forEach((cb) => socket.off(event, cb));
-        callbacks.clear();
+        callbacks.forEach((cb) => socket.on(event, cb));
       });
     });
 
@@ -51,5 +50,7 @@ export const useSocket = () => {
     socketRef.current?.emit(event, data);
   }, []);
 
-  return { socket: socketRef, subscribe, emit };
+  const isConnected = useCallback(() => !!socketRef.current?.connected, []);
+
+  return { socket: socketRef, subscribe, emit, isConnected };
 };
