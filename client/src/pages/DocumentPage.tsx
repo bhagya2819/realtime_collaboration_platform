@@ -1,14 +1,16 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, ReactRenderer } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
+import Mention from '@tiptap/extension-mention';
 import api from '../services/api';
 import type { Document } from '../types';
 import { useSocket } from '../hooks/useSocket';
 import { useCollaboration } from '../hooks/useCollaboration';
 import { usePresenceStore } from '../stores/presenceStore';
 import { CommentPanel } from '../components/comments/CommentPanel';
+import { MentionList } from '../components/editor/MentionList';
 
 const CURSOR_COLORS = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
@@ -54,7 +56,83 @@ export const DocumentPage: React.FC = () => {
   const { typingUserIds } = usePresenceStore((s) => s);
 
   const editor = useEditor({
-    extensions: [StarterKit, Placeholder.configure({ placeholder: 'Start typing...' })],
+    extensions: [
+      StarterKit,
+      Placeholder.configure({ placeholder: 'Start typing...' }),
+      Mention.configure({
+        HTMLAttributes: { class: 'text-blue-600 font-medium' },
+        renderLabel: ({ node }) => `@${node.attrs.label}`,
+        suggestion: {
+          char: '@',
+          items: async ({ query }: { query: string }) => {
+            try {
+              const { data } = await api.get('/workspaces');
+              const workspaces = data.workspaces || [];
+              const memberMap = new Map<string, { id: string; name: string; email: string }>();
+              for (const ws of workspaces) {
+                for (const member of ws.members || []) {
+                  const u = typeof member.user === 'object' ? member.user : null;
+                  if (u && !memberMap.has(u.id)) {
+                    memberMap.set(u.id, u);
+                  }
+                }
+              }
+              return Array.from(memberMap.values())
+                .filter((u) => u.name.toLowerCase().includes(query.toLowerCase()))
+                .slice(0, 10);
+            } catch {
+              return [];
+            }
+          },
+          render: () => {
+            let component: ReactRenderer | null = null;
+            let popup: HTMLElement | null = null;
+
+            return {
+              onStart: (props: any) => {
+                component = new ReactRenderer(MentionList, {
+                  props,
+                  editor: props.editor,
+                });
+                popup = document.createElement('div');
+                popup.className = 'absolute z-50';
+                document.body.appendChild(popup);
+                popup.appendChild(component.element);
+              },
+              onUpdate(props: any) {
+                if (component) {
+                  (component as ReactRenderer).updateProps(props);
+                }
+                if (popup && props.clientRect) {
+                  const rect = props.clientRect();
+                  if (rect) {
+                    popup.style.position = 'absolute';
+                    popup.style.left = `${rect.left + window.scrollX}px`;
+                    popup.style.top = `${rect.bottom + window.scrollY}px`;
+                  }
+                }
+              },
+              onKeyDown(props: any) {
+                if ((component as any)?.ref?.onKeyDown) {
+                  return (component as any).ref.onKeyDown(props);
+                }
+                return false;
+              },
+              onExit() {
+                if (popup) {
+                  popup.remove();
+                  popup = null;
+                }
+                if (component) {
+                  component.destroy();
+                  component = null;
+                }
+              },
+            };
+          },
+        },
+      }),
+    ],
     content: '',
   });
 
