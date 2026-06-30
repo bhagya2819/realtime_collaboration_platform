@@ -7,6 +7,7 @@ import {
   deleteWorkspace,
 } from '../controllers/workspaceController';
 import { generateInvite, joinWorkspace } from '../controllers/inviteController';
+import { updateMemberRole } from '../controllers/roleController';
 import { authenticate } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import { workspaceSchema } from '../validators';
@@ -22,5 +23,6 @@ router.get('/:id', getWorkspace);
 router.patch('/:id', validate(workspaceSchema), updateWorkspace);
 router.delete('/:id', deleteWorkspace);
 router.post('/:id/invite', generateInvite);
+router.patch('/:id/members/:userId', updateMemberRole);
 
 export default router;

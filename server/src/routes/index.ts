@@ -21,7 +21,16 @@ import {
   markAsRead,
   markAllRead,
 } from '../controllers/notificationController';
+import {
+  getActivity,
+} from '../controllers/activityController';
+import {
+  getVersions,
+  getVersion,
+  restoreVersion,
+} from '../controllers/versionController';
 import { authenticate } from '../middleware/auth';
+import { authorize } from '../middleware/rbac';
 import { validate } from '../middleware/validate';
 import { documentCreateSchema, documentUpdateSchema, commentSchema } from '../validators';
 
@@ -30,8 +39,8 @@ const router = Router();
 router.use('/auth', authRoutes);
 router.use('/workspaces', workspaceRoutes);
 
-// Documents
-router.post('/workspaces/:id/documents', authenticate, validate(documentCreateSchema), createDocument);
+// Documents (admin/editor only for mutations)
+router.post('/workspaces/:id/documents', authenticate, authorize('admin', 'editor'), validate(documentCreateSchema), createDocument);
 router.get('/workspaces/:id/documents', authenticate, getDocuments);
 router.post('/workspaces/join', authenticate, joinWorkspace);
 router.get('/documents/:id', authenticate, getDocument);
@@ -49,5 +58,13 @@ router.patch('/comments/:id/resolve', authenticate, resolveComment);
 router.get('/notifications', authenticate, getNotifications);
 router.patch('/notifications/:id/read', authenticate, markAsRead);
 router.patch('/notifications/read-all', authenticate, markAllRead);
+
+// Version History
+router.get('/documents/:id/versions', authenticate, getVersions);
+router.get('/documents/:id/versions/:vid', authenticate, getVersion);
+router.post('/documents/:id/restore/:vid', authenticate, restoreVersion);
+
+// Activity
+router.get('/workspaces/:id/activity', authenticate, getActivity);
 
 export default router;
