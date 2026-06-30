@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import type { Document } from '../types';
+import { useWorkspaceRole } from '../hooks/useWorkspaceRole';
+import { ActivityFeed } from '../components/workspace/ActivityFeed';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 
@@ -15,6 +17,8 @@ export const DocumentListPage: React.FC = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [error, setError] = useState('');
+  const [showActivity, setShowActivity] = useState(false);
+  const { canEdit } = useWorkspaceRole(workspaceId);
 
   const fetchDocuments = async () => {
     try {
@@ -109,10 +113,21 @@ export const DocumentListPage: React.FC = () => {
 
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-lg font-semibold">Documents</h2>
-          <Button onClick={() => setShowCreate(true)}>+ New Document</Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setShowActivity(!showActivity)}>
+              {showActivity ? 'Hide Activity' : 'Activity'}
+            </Button>
+            {canEdit && <Button onClick={() => setShowCreate(true)}>+ New Document</Button>}
+          </div>
         </div>
 
-        {showCreate && (
+        {showActivity && workspaceId && (
+          <div className="bg-white rounded-lg shadow mb-6 max-h-64 overflow-y-auto">
+            <ActivityFeed workspaceId={workspaceId} />
+          </div>
+        )}
+
+        {showCreate && canEdit && (
           <div className="bg-white p-4 rounded-lg shadow mb-6">
             <form onSubmit={handleCreate} className="flex gap-3 items-end">
               <div className="flex-1">

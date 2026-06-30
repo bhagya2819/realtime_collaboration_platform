@@ -10,6 +10,7 @@ import { useSocket } from '../hooks/useSocket';
 import { useCollaboration } from '../hooks/useCollaboration';
 import { usePresenceStore } from '../stores/presenceStore';
 import { CommentPanel } from '../components/comments/CommentPanel';
+import { VersionHistoryPanel } from '../components/version/VersionHistoryPanel';
 import { MentionList } from '../components/editor/MentionList';
 
 const CURSOR_COLORS = [
@@ -49,6 +50,7 @@ export const DocumentPage: React.FC = () => {
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
   const [saving, setSaving] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<'comments' | 'versions' | 'online'>('comments');
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const docRef = useRef<Document | null>(null);
 
@@ -216,24 +218,47 @@ export const DocumentPage: React.FC = () => {
           </div>
         </main>
 
-        <aside className="w-72 shrink-0 max-h-[80vh] overflow-hidden">
-          <CommentPanel documentId={documentId!} editor={editor} />
-        </aside>
-
-        <aside className="w-48 shrink-0">
-          <div className="bg-white rounded-lg shadow p-4 sticky top-20">
-            <h3 className="text-sm font-semibold text-gray-500 mb-3">Online</h3>
-            {onlineUsers.length === 0 ? <p className="text-xs text-gray-400">Only you</p> : (
-              <div className="space-y-2">
-                {onlineUsers.map((user, i) => (
-                  <div key={user.socketId} className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: getCursorColor(i) }} />
-                    <span className="text-sm truncate">{user.name || user.userId.slice(0, 8)}</span>
-                    {user.typing && <span className="text-[10px] text-gray-400">typing</span>}
-                  </div>
-                ))}
-              </div>
-            )}
+        <aside className="w-72 shrink-0 max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="bg-white rounded-lg shadow flex-1 flex flex-col">
+            <div className="flex border-b text-xs">
+              <button
+                onClick={() => setSidebarTab('comments')}
+                className={`flex-1 py-2 font-medium ${sidebarTab === 'comments' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}
+              >
+                Comments
+              </button>
+              <button
+                onClick={() => setSidebarTab('versions')}
+                className={`flex-1 py-2 font-medium ${sidebarTab === 'versions' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}
+              >
+                Versions
+              </button>
+              <button
+                onClick={() => setSidebarTab('online')}
+                className={`flex-1 py-2 font-medium ${sidebarTab === 'online' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}
+              >
+                Online
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              {sidebarTab === 'comments' && <CommentPanel documentId={documentId!} editor={editor} />}
+              {sidebarTab === 'versions' && <VersionHistoryPanel documentId={documentId!} onRestore={() => editor?.commands.setContent(docRef.current?.content || '')} />}
+              {sidebarTab === 'online' && (
+                <div className="p-3">
+                  {onlineUsers.length === 0 ? <p className="text-xs text-gray-400">Only you</p> : (
+                    <div className="space-y-2">
+                      {onlineUsers.map((user, i) => (
+                        <div key={user.socketId} className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: getCursorColor(i) }} />
+                          <span className="text-sm truncate">{user.name || user.userId.slice(0, 8)}</span>
+                          {user.typing && <span className="text-[10px] text-gray-400">typing</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </aside>
       </div>
