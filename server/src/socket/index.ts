@@ -1,7 +1,9 @@
 import { Server as HttpServer } from 'http';
 import { Server, Socket } from 'socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';
 import { verifyAccessToken } from '../utils/jwt';
 import { env } from '../config/env';
+import { getRedis } from '../config/redis';
 import { handleDocumentEvents } from './documentHandler';
 import { handlePresenceEvents } from './presenceHandler';
 
@@ -14,6 +16,17 @@ export const initSocket = (httpServer: HttpServer): Server => {
       methods: ['GET', 'POST'],
     },
   });
+
+  // Setup Redis adapter for horizontal scaling (skips if Redis unavailable or in test)
+  if (env.NODE_ENV !== 'test') {
+    try {
+      const pubClient = getRedis().duplicate();
+      const subClient = getRedis().duplicate();
+      io.adapter(createAdapter(pubClient, subClient));
+    } catch {
+      console.warn('Redis adapter not available for Socket.IO — running in single-instance mode');
+    }
+  }
 
   io.use((socket, next) => {
     const token = socket.handshake.auth.token;
