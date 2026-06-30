@@ -8,7 +8,7 @@ interface AuthState {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   fetchUser: () => Promise<void>;
 }
 
@@ -43,7 +43,14 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  logout: () => {
+  logout: async () => {
+    try {
+      await api.post('/auth/logout', {
+        refreshToken: localStorage.getItem('refreshToken'),
+      });
+    } catch {
+      // Proceed with local cleanup even if server call fails
+    }
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     set({ user: null, isAuthenticated: false });
