@@ -10,6 +10,7 @@ import {
 } from '../utils/jwt';
 import { env } from '../config/env';
 import { getRedis } from '../config/redis';
+import { cacheSession, removeSession } from '../services/sessionCache';
 
 const blacklistToken = async (token: string): Promise<void> => {
   try {
@@ -53,6 +54,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
 
+    cacheSession(user._id.toString(), accessToken);
+
     res.status(201).json({
       user: { id: user._id, name: user.name, email: user.email },
       accessToken,
@@ -82,6 +85,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const tokenPayload = { userId: user._id.toString() };
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
+
+    cacheSession(user._id.toString(), accessToken);
 
     res.json({
       user: { id: user._id, name: user.name, email: user.email },
@@ -119,6 +124,8 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
     if (refreshToken) {
       await blacklistToken(refreshToken);
     }
+
+    removeSession(req.userId!);
 
     res.json({ message: 'Logged out successfully' });
   } catch {
