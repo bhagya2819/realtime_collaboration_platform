@@ -6,6 +6,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import api from '../services/api';
 import type { Document } from '../types';
 import { useSocket } from '../hooks/useSocket';
+import { useCollaboration } from '../hooks/useCollaboration';
 import { usePresenceStore } from '../stores/presenceStore';
 import { CommentPanel } from '../components/comments/CommentPanel';
 
@@ -46,18 +47,36 @@ export const DocumentPage: React.FC = () => {
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
   const [saving, setSaving] = useState(false);
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const docRef = useRef<Document | null>(null);
 
-  const { subscribe, emit } = useSocket();
-  const { users, typingUserIds, addUser, removeUser, updateCursor, setTypingUsers: setStoreTyping, setUsers } = usePresenceStore();
+  const { emit, subscribe } = useSocket();
+  const { typingUserIds } = usePresenceStore((s) => s);
 
   const editor = useEditor({
     extensions: [StarterKit, Placeholder.configure({ placeholder: 'Start typing...' })],
     content: '',
-    onUpdate: ({ editor: ed }) => emit('send-changes', { documentId, changes: { content: ed.getJSON() } }),
-    onSelectionUpdate: ({ editor: ed }) => emit('cursor-update', { documentId, position: ed.state.selection.from, selection: ed.state.selection.toJSON() }),
   });
+
+  const collaboration = useCollaboration(editor, documentId);
+
+  useEffect(() => {
+    if (!editor || !collaboration) return;
+
+    editor.on('update', () => {
+      collaboration.syncContent(editor.getJSON());
+      collaboration.sendTypingStart();
+    });
+
+    editor.on('selectionUpdate', () => {
+      collaboration.sendCursor(editor.state.selection.from, editor.state.selection.toJSON());
+    });
+
+    return () => {
+      editor.off('update');
+      editor.off('selectionUpdate');
+    };
+  }, [editor, collaboration]);
 
   useEffect(() => {
     if (!documentId) return;
@@ -72,30 +91,15 @@ export const DocumentPage: React.FC = () => {
   }, [documentId]);
 
   useEffect(() => {
-    if (!documentId) return;
-    const ed = editor;
-    if (!ed) return;
+    if (!documentId || !editor) return;
 
-    emit('join-document', { documentId });
+    const unsubSync = subscribe('request-sync', (d: any) => {
+      saveToDb({ content: editor.getJSON() });
+      emit('sync-content', { documentId, content: editor.getJSON(), targetSocketId: d.requesterId });
+    });
 
-    const unsubs = [
-      subscribe('presence-update', (d: any) => setUsers(d.documentId, d.users)),
-      subscribe('user-joined', (d: any) => addUser(d.documentId, { socketId: d.socketId, userId: d.userId, typing: false })),
-      subscribe('user-left', (d: any) => removeUser(d.documentId, d.socketId)),
-      subscribe('cursor-updated', (d: any) => updateCursor(d.documentId, d.socketId, { position: d.position, selection: d.selection })),
-      subscribe('typing-users', (d: any) => setStoreTyping(d.documentId, d.userIds)),
-      subscribe('receive-changes', (d: any) => { if (d.changes?.content) ed.commands.setContent(d.changes.content); }),
-      subscribe('request-sync', (d: any) => {
-        saveToDb({ content: ed.getJSON() });
-        emit('sync-content', { documentId, content: ed.getJSON(), targetSocketId: d.requesterId });
-      }),
-    ];
-
-    return () => {
-      emit('leave-document', { documentId });
-      unsubs.forEach((u) => u());
-    };
-  }, [documentId]);
+    return () => { unsubSync(); };
+  }, [documentId, editor]);
 
   const saveToDb = async (updates: { title?: string; content?: object }) => {
     try { setSaving(true); await api.patch(`/documents/${documentId}`, updates); } catch {}
@@ -108,7 +112,7 @@ export const DocumentPage: React.FC = () => {
   }, [documentId]);
 
   const docTypingUsers = typingUserIds[documentId || ''] || [];
-  const onlineUsers = users[documentId || ''] || [];
+  const onlineUsers = usePresenceStore((s) => s.users[documentId || ''] || []);
 
   return (
     <div className="min-h-screen bg-gray-50">
