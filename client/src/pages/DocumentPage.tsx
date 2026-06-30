@@ -8,6 +8,7 @@ import api from '../services/api';
 import type { Document } from '../types';
 import { useSocket } from '../hooks/useSocket';
 import { useCollaboration } from '../hooks/useCollaboration';
+import { useWorkspaceRole } from '../hooks/useWorkspaceRole';
 import { usePresenceStore } from '../stores/presenceStore';
 import { CommentPanel } from '../components/comments/CommentPanel';
 import { VersionHistoryPanel } from '../components/version/VersionHistoryPanel';
@@ -56,6 +57,8 @@ export const DocumentPage: React.FC = () => {
 
   const { emit, subscribe } = useSocket();
   const { typingUserIds } = usePresenceStore((s) => s);
+  const workspaceId = docRef.current?.workspace as string | undefined;
+  const { canEdit } = useWorkspaceRole(workspaceId);
 
   const editor = useEditor({
     extensions: [
@@ -137,6 +140,11 @@ export const DocumentPage: React.FC = () => {
     ],
     content: '',
   });
+
+  useEffect(() => {
+    if (!editor) return;
+    editor.setEditable(canEdit);
+  }, [editor, canEdit]);
 
   const collaboration = useCollaboration(editor, documentId);
 
