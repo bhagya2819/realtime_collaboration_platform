@@ -4,6 +4,7 @@ import api from '../services/api';
 import type { Document } from '../types';
 import { useWorkspaceRole } from '../hooks/useWorkspaceRole';
 import { ActivityFeed } from '../components/workspace/ActivityFeed';
+import { MemberList } from '../components/workspace/MemberList';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 
@@ -18,7 +19,8 @@ export const DocumentListPage: React.FC = () => {
   const [newTitle, setNewTitle] = useState('');
   const [error, setError] = useState('');
   const [showActivity, setShowActivity] = useState(false);
-  const { canEdit } = useWorkspaceRole(workspaceId);
+  const [showMembers, setShowMembers] = useState(false);
+  const { canEdit, isAdmin } = useWorkspaceRole(workspaceId);
 
   const fetchDocuments = async () => {
     try {
@@ -117,6 +119,9 @@ export const DocumentListPage: React.FC = () => {
             <Button variant="secondary" onClick={() => setShowActivity(!showActivity)}>
               {showActivity ? 'Hide Activity' : 'Activity'}
             </Button>
+            <Button variant="secondary" onClick={() => setShowMembers(!showMembers)}>
+              {showMembers ? 'Hide Members' : 'Members'}
+            </Button>
             {canEdit && <Button onClick={() => setShowCreate(true)}>+ New Document</Button>}
           </div>
         </div>
@@ -124,6 +129,13 @@ export const DocumentListPage: React.FC = () => {
         {showActivity && workspaceId && (
           <div className="bg-white rounded-lg shadow mb-6 max-h-64 overflow-y-auto">
             <ActivityFeed workspaceId={workspaceId} />
+          </div>
+        )}
+
+        {showMembers && workspaceId && (
+          <div className="bg-white rounded-lg shadow p-3 mb-6 max-h-80 overflow-y-auto">
+            <h3 className="text-sm font-semibold mb-3">Workspace Members</h3>
+            <MemberList workspaceId={workspaceId} isAdmin={isAdmin} />
           </div>
         )}
 
