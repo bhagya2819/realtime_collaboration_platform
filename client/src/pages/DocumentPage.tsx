@@ -217,7 +217,7 @@ export const DocumentPage: React.FC = () => {
         </main>
 
         <aside className="w-72 shrink-0 max-h-[80vh] overflow-hidden">
-          <CommentPanel documentId={documentId!} />
+          <CommentPanel documentId={documentId!} editor={editor} />
         </aside>
 
         <aside className="w-48 shrink-0">

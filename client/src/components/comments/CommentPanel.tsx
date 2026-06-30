@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import type { Editor } from '@tiptap/core';
 import api from '../../services/api';
 import type { Comment } from '../../types';
 import { Button } from '../common/Button';
@@ -6,6 +7,7 @@ import { useSocket } from '../../hooks/useSocket';
 
 interface Props {
   documentId: string;
+  editor: Editor | null;
 }
 
 const MENTION_REGEX = /@\[([^\]]+)\]\(([^)]+)\)/g;
@@ -46,11 +48,12 @@ const renderText = (text: string) => {
   return result;
 };
 
-export const CommentPanel: React.FC<Props> = ({ documentId }) => {
+export const CommentPanel: React.FC<Props> = ({ documentId, editor }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [text, setText] = useState('');
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
+  const [selectionRef, setSelectionRef] = useState<object>();
   const { subscribe } = useSocket();
 
   const fetchComments = async () => {
@@ -74,8 +77,13 @@ export const CommentPanel: React.FC<Props> = ({ documentId }) => {
     if (!text.trim()) return;
     try {
       const mentions = parseMentions(text);
-      await api.post(`/documents/${documentId}/comments`, { text, mentions });
+      await api.post(`/documents/${documentId}/comments`, {
+        text,
+        mentions,
+        selectionReference: selectionRef,
+      });
       setText('');
+      setSelectionRef(undefined);
       fetchComments();
     } catch {}
   };
@@ -84,10 +92,13 @@ export const CommentPanel: React.FC<Props> = ({ documentId }) => {
     if (!replyText.trim()) return;
     try {
       const mentions = parseMentions(replyText);
+      const ref = selectionRef;
+      setSelectionRef(undefined);
       await api.post(`/documents/${documentId}/comments`, {
         text: replyText,
         threadParent: parentId,
         mentions,
+        selectionReference: ref,
       });
       setReplyText('');
       setReplyTo(null);
@@ -180,6 +191,20 @@ export const CommentPanel: React.FC<Props> = ({ documentId }) => {
       </div>
 
       <div className="p-3 border-t">
+        {editor && (
+          <button
+            onClick={() => {
+              const { from, to } = editor.state.selection;
+              if (from !== to) {
+                const slice = editor.state.selection.content();
+                setSelectionRef({ from, to, text: slice.content.textBetween(0, slice.content.size, '\n') });
+              }
+            }}
+            className="text-[10px] text-blue-500 hover:underline mb-1 block"
+          >
+            {selectionRef ? '✓ Selection captured' : '📎 Capture editor selection'}
+          </button>
+        )}
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
