@@ -1,5 +1,6 @@
 import { Socket } from 'socket.io';
 import { io } from './index';
+import { CommentModel, NotificationModel, User } from '../models';
 
 interface DocumentRoomState {
   users: Map<string, { userId: string; cursor?: { position: number; selection?: any }; typing: boolean }>;
@@ -12,6 +13,15 @@ const getRoomState = (documentId: string): DocumentRoomState => {
     documentRooms.set(documentId, { users: new Map() });
   }
   return documentRooms.get(documentId)!;
+};
+
+const parseMentions = (text: string): string[] => {
+  const matches = text.match(/@\[([^\]]+)\]\(([^)]+)\)/g);
+  if (!matches) return [];
+  return matches.map((m) => {
+    const idMatch = m.match(/\(([^)]+)\)/);
+    return idMatch ? idMatch[1] : '';
+  }).filter(Boolean);
 };
 
 export const handleDocumentEvents = (socket: Socket, userId: string): void => {
@@ -82,6 +92,51 @@ export const handleDocumentEvents = (socket: Socket, userId: string): void => {
       position,
       selection,
     });
+  });
+
+  socket.on('add-comment', async ({ documentId, comment }: { documentId: string; comment: { text: string; selectionReference?: any; threadParent?: string } }) => {
+    try {
+      const mentionIds = parseMentions(comment.text);
+
+      const newComment = await CommentModel.create({
+        document: documentId as any,
+        user: userId as any,
+        text: comment.text,
+        selectionReference: comment.selectionReference,
+        threadParent: comment.threadParent || undefined,
+        mentions: mentionIds as any[],
+      } as any);
+
+      await newComment.populate('user', 'name email');
+
+      const actor = await User.findById(userId).select('name');
+
+      for (const mentionId of mentionIds) {
+        await NotificationModel.create({
+          recipient: mentionId,
+          actor: userId,
+          type: 'mention',
+          message: `${actor?.name || 'Someone'} mentioned you in a comment`,
+          targetType: 'document',
+          targetId: documentId,
+        });
+
+        io.to(`user:${mentionId}`).emit('notification', {
+          type: 'mention',
+          message: `${actor?.name || 'Someone'} mentioned you in a comment`,
+          targetType: 'document',
+          targetId: documentId,
+          notificationId: newComment._id,
+        });
+      }
+
+      io.to(documentId).emit('new-comment', {
+        documentId,
+        comment: newComment,
+      });
+    } catch (err) {
+      socket.emit('comment-error', { message: 'Failed to add comment' });
+    }
   });
 
   socket.on('disconnect', () => {
