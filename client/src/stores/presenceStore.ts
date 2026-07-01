@@ -9,19 +9,24 @@ interface RemoteUser {
   typing: boolean;
 }
 
+interface TypingUser {
+  userId: string;
+  name: string;
+}
+
 interface PresenceState {
   users: Record<string, RemoteUser[]>;
-  typingUserIds: Record<string, string[]>;
+  typingUsers: Record<string, TypingUser[]>;
   setUsers: (documentId: string, users: RemoteUser[]) => void;
   addUser: (documentId: string, user: RemoteUser) => void;
   removeUser: (documentId: string, socketId: string) => void;
   updateCursor: (documentId: string, socketId: string, cursor: { position: number; selection?: any }) => void;
-  setTypingUsers: (documentId: string, userIds: string[]) => void;
+  setTypingUsers: (documentId: string, typingUsers: TypingUser[]) => void;
 }
 
 export const usePresenceStore = create<PresenceState>((set) => ({
   users: {},
-  typingUserIds: {},
+  typingUsers: {},
 
   setUsers: (documentId, users) =>
     set((s) => ({ users: { ...s.users, [documentId]: users } })),
@@ -52,8 +57,8 @@ export const usePresenceStore = create<PresenceState>((set) => ({
       },
     })),
 
-  setTypingUsers: (documentId, userIds) =>
+  setTypingUsers: (documentId, typingUsers) =>
     set((s) => ({
-      typingUserIds: { ...s.typingUserIds, [documentId]: userIds },
+      typingUsers: { ...s.typingUsers, [documentId]: typingUsers },
     })),
 }));
