@@ -4,6 +4,7 @@ import { useEditor, EditorContent, ReactRenderer } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Mention from '@tiptap/extension-mention';
+import Collaboration from '@tiptap/extension-collaboration';
 import api from '../services/api';
 import type { Document } from '../types';
 import { useSocket } from '../hooks/useSocket';
@@ -56,9 +57,12 @@ export const DocumentPage: React.FC = () => {
   const docRef = useRef<Document | null>(null);
 
   const { emit, subscribe } = useSocket();
-  const { typingUserIds } = usePresenceStore((s) => s);
+  const { typingUsers } = usePresenceStore((s) => s);
   const workspaceId = docRef.current?.workspace as string | undefined;
   const { canEdit } = useWorkspaceRole(workspaceId);
+
+  // Initialize Yjs collaboration — creates Y.Doc, sets up socket sync
+  const { ydoc, sendCursor, sendTypingStart } = useCollaboration(documentId);
 
   const editor = useEditor({
     extensions: [
@@ -137,6 +141,10 @@ export const DocumentPage: React.FC = () => {
           },
         },
       }),
+      // Wire TipTap Collaboration extension with Yjs Y.Doc
+      Collaboration.configure({
+        document: ydoc,
+      }),
     ],
     content: '',
   });
@@ -146,26 +154,25 @@ export const DocumentPage: React.FC = () => {
     editor.setEditable(canEdit);
   }, [editor, canEdit]);
 
-  const collaboration = useCollaboration(editor, documentId);
-
+  // Wire cursor and typing indicator events to the editor
   useEffect(() => {
-    if (!editor || !collaboration) return;
+    if (!editor) return;
 
     editor.on('update', () => {
-      collaboration.syncContent(editor.getJSON());
-      collaboration.sendTypingStart();
+      sendTypingStart();
     });
 
     editor.on('selectionUpdate', () => {
-      collaboration.sendCursor(editor.state.selection.from, editor.state.selection.toJSON());
+      sendCursor(editor.state.selection.from, editor.state.selection.toJSON());
     });
 
     return () => {
       editor.off('update');
       editor.off('selectionUpdate');
     };
-  }, [editor, collaboration]);
+  }, [editor, sendCursor, sendTypingStart]);
 
+  // Load document metadata (title, workspace info) via REST
   useEffect(() => {
     if (!documentId) return;
     (async () => {
@@ -173,21 +180,9 @@ export const DocumentPage: React.FC = () => {
         const { data } = await api.get(`/documents/${documentId}`);
         docRef.current = data.document;
         setTitle(data.document.title);
-        editor?.commands.setContent(data.document.content || '');
       } catch { navigate('/workspaces'); }
     })();
   }, [documentId]);
-
-  useEffect(() => {
-    if (!documentId || !editor) return;
-
-    const unsubSync = subscribe('request-sync', (d: any) => {
-      saveToDb({ content: editor.getJSON() });
-      emit('sync-content', { documentId, content: editor.getJSON(), targetSocketId: d.requesterId });
-    });
-
-    return () => { unsubSync(); };
-  }, [documentId, editor]);
 
   const saveToDb = async (updates: { title?: string; content?: object }) => {
     try { setSaving(true); await api.patch(`/documents/${documentId}`, updates); } catch {}
@@ -199,8 +194,12 @@ export const DocumentPage: React.FC = () => {
     saveTimeoutRef.current = setTimeout(() => saveToDb({ title: newTitle }), 3000);
   }, [documentId]);
 
-  const docTypingUsers = typingUserIds[documentId || ''] || [];
+  const docTypingUsers = typingUsers[documentId || ''] || [];
   const onlineUsers = usePresenceStore((s) => s.users[documentId || ''] || []);
+
+  const typingText = docTypingUsers.length > 0
+    ? `${docTypingUsers.map((u) => u.name).join(', ')} ${docTypingUsers.length === 1 ? 'is' : 'are'} typing...`
+    : '';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -212,7 +211,7 @@ export const DocumentPage: React.FC = () => {
               className="text-xl font-bold bg-transparent border-b-2 border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none px-1" />
           </div>
           <div className="flex items-center gap-4">
-            {docTypingUsers.length > 0 && <span className="text-xs text-gray-400 italic">{docTypingUsers.length} typing...</span>}
+            {typingText && <span className="text-xs text-gray-400 italic">{typingText}</span>}
             <span className="text-xs text-gray-400">{saving ? 'Saving...' : 'Saved'}</span>
           </div>
         </div>
@@ -250,7 +249,7 @@ export const DocumentPage: React.FC = () => {
             </div>
             <div className="flex-1 overflow-hidden">
               {sidebarTab === 'comments' && <CommentPanel documentId={documentId!} editor={editor} />}
-              {sidebarTab === 'versions' && <VersionHistoryPanel documentId={documentId!} onRestore={() => editor?.commands.setContent(docRef.current?.content || '')} />}
+              {sidebarTab === 'versions' && <VersionHistoryPanel documentId={documentId!} onRestore={() => {}} />}
               {sidebarTab === 'online' && (
                 <div className="p-3">
                   {onlineUsers.length === 0 ? <p className="text-xs text-gray-400">Only you</p> : (
