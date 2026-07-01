@@ -14,7 +14,6 @@
   "dependencies": {
     "@tanstack/react-query": "^5.101.2",
     "@tiptap/extension-collaboration": "^2.27.2",
-    "@tiptap/extension-collaboration-cursor": "^2.26.2",
     "@tiptap/extension-mention": "^2.27.2",
     "@tiptap/extension-placeholder": "^2.27.2",
     "@tiptap/react": "^2.27.2",
