@@ -7,6 +7,7 @@ import {
   leaveDocument,
   applyUpdate,
   getFullState,
+  setLastEditor,
 } from './yDocManager';
 
 interface DocumentRoomState {
@@ -69,6 +70,7 @@ export const handleDocumentEvents = (socket: Socket, userId: string): void => {
 
         const update = new Uint8Array(data.update);
         applyUpdate(documentId, update);
+        setLastEditor(documentId, userId);
 
         // Broadcast to other clients in the room
         socket.to(documentId).emit('yjs-update', {
