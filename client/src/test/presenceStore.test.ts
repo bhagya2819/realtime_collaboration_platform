@@ -3,7 +3,7 @@ import { usePresenceStore } from '../stores/presenceStore';
 
 describe('usePresenceStore', () => {
   beforeEach(() => {
-    usePresenceStore.setState({ users: {}, typingUserIds: {} });
+    usePresenceStore.setState({ users: {}, typingUsers: {} });
   });
 
   describe('setUsers', () => {
@@ -98,17 +98,21 @@ describe('usePresenceStore', () => {
   });
 
   describe('setTypingUsers', () => {
-    it('sets typing user IDs for a document', () => {
-      usePresenceStore.getState().setTypingUsers('doc1', ['u1', 'u2']);
+    it('sets typing users for a document', () => {
+      const typing: Array<{ userId: string; name: string }> = [
+        { userId: 'u1', name: 'Alice' },
+        { userId: 'u2', name: 'Bob' },
+      ];
+      usePresenceStore.getState().setTypingUsers('doc1', typing);
 
-      expect(usePresenceStore.getState().typingUserIds['doc1']).toEqual(['u1', 'u2']);
+      expect(usePresenceStore.getState().typingUsers['doc1']).toEqual(typing);
     });
 
     it('clears typing users', () => {
-      usePresenceStore.getState().setTypingUsers('doc1', ['u1']);
+      usePresenceStore.getState().setTypingUsers('doc1', [{ userId: 'u1', name: 'Alice' }]);
       usePresenceStore.getState().setTypingUsers('doc1', []);
 
-      expect(usePresenceStore.getState().typingUserIds['doc1']).toEqual([]);
+      expect(usePresenceStore.getState().typingUsers['doc1']).toEqual([]);
     });
   });
 });

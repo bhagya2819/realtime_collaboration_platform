@@ -127,23 +127,15 @@ describe('Socket.IO Events', () => {
     });
   });
 
-  it('broadcasts send-changes → receive-changes', (done) => {
+  it('receives yjs-sync-full on join-document', (done) => {
     const client1 = createClient();
     client1.on('connect', () => {
       client1.emit('join-document', { documentId });
-      client1.on('presence-update', () => {
-        const client2 = createClient();
-        client2.on('connect', () => {
-          client2.emit('join-document', { documentId });
-          client2.on('receive-changes', (data: any) => {
-            expect(data.documentId).toBe(documentId);
-            expect(data.changes).toBeDefined();
-            client1.disconnect();
-            client2.disconnect();
-            done();
-          });
-          client1.emit('send-changes', { documentId, changes: { content: 'hello' } });
-        });
+      client1.on('yjs-sync-full', (data: any) => {
+        expect(data.documentId).toBe(documentId);
+        expect(data.state).toBeDefined();
+        client1.disconnect();
+        done();
       });
     });
   });
@@ -177,7 +169,9 @@ describe('Socket.IO Events', () => {
         client2.on('connect', () => {
           client2.emit('join-document', { documentId });
           client1.on('typing-users', (data: any) => {
-            expect(data.userIds.length).toBeGreaterThan(0);
+            expect(data.users.length).toBeGreaterThan(0);
+            expect(data.users[0].userId).toBeDefined();
+            expect(data.users[0].name).toBeDefined();
             client1.disconnect();
             client2.disconnect();
             done();
@@ -200,7 +194,7 @@ describe('Socket.IO Events', () => {
           setTimeout(() => {
             client2.emit('typing-stop', { documentId });
             client1.on('typing-users', (data: any) => {
-              if (data.userIds.length === 0) {
+              if (data.users.length === 0) {
                 client1.disconnect();
                 client2.disconnect();
                 done();
