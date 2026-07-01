@@ -249,7 +249,7 @@ export const DocumentPage: React.FC = () => {
             </div>
             <div className="flex-1 overflow-hidden">
               {sidebarTab === 'comments' && <CommentPanel documentId={documentId!} editor={editor} />}
-              {sidebarTab === 'versions' && <VersionHistoryPanel documentId={documentId!} onRestore={() => {}} />}
+              {sidebarTab === 'versions' && <VersionHistoryPanel documentId={documentId!} />}
               {sidebarTab === 'online' && (
                 <div className="p-3">
                   {onlineUsers.length === 0 ? <p className="text-xs text-gray-400">Only you</p> : (

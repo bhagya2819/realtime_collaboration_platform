@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { DocumentVersionModel, DocumentModel } from '../models';
 import { logActivity } from '../services/logActivity';
+import { io } from '../socket';
+import { reloadFromDatabase } from '../socket/yDocManager';
 
 const pid = (req: Request): string => req.params.id as string;
 
@@ -60,6 +62,15 @@ export const restoreVersion = async (req: Request, res: Response): Promise<void>
       targetId: version._id.toString(),
       metadata: { snapshotNumber: version.snapshotNumber },
     });
+
+    // Reload Y.Doc from MongoDB and broadcast to all connected clients
+    const fullState = await reloadFromDatabase(document._id.toString());
+    if (fullState) {
+      io.to(document._id.toString()).emit('yjs-sync-full', {
+        documentId: document._id.toString(),
+        state: Buffer.from(fullState),
+      });
+    }
 
     res.json({ document });
   } catch {

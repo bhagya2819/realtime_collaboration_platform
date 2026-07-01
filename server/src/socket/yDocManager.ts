@@ -2,10 +2,19 @@ import * as Y from 'yjs';
 import { DocumentModel } from '../models';
 import { schema } from './yjsSchema';
 import { prosemirrorJSONToYXmlFragment, yXmlFragmentToProsemirrorJSON } from 'y-prosemirror';
+import { logActivity } from '../services/logActivity';
+import { createSnapshot } from '../controllers/versionController';
 
 const ydocs = new Map<string, Y.Doc>();
 const saveTimers = new Map<string, ReturnType<typeof setInterval>>();
 const userCounts = new Map<string, number>();
+const lastEditors = new Map<string, string>();
+
+interface DocMeta {
+  workspace: string;
+  title: string;
+}
+const docMeta = new Map<string, DocMeta>();
 
 const AUTO_SAVE_INTERVAL = 30_000; // 30 seconds
 
@@ -19,9 +28,15 @@ export async function getOrCreateYDoc(documentId: string): Promise<Y.Doc> {
   }
 
   const ydoc = new Y.Doc();
-  const doc = await DocumentModel.findById(documentId).select('content');
+  const doc = await DocumentModel.findById(documentId).select('content workspace title');
 
-  if (doc?.content) {
+  if (doc) {
+    // Cache metadata for activity logging and snapshots
+    docMeta.set(documentId, {
+      workspace: doc.workspace?.toString() || '',
+      title: doc.title || 'Untitled',
+    });
+
     if (Buffer.isBuffer(doc.content)) {
       // Stored as Yjs state (Buffer) — apply directly
       Y.applyUpdate(ydoc, doc.content);
@@ -79,6 +94,20 @@ export async function persistYDoc(documentId: string): Promise<void> {
         content,
         $currentDate: { updatedAt: true },
       });
+
+      // Activity logging and version snapshots for real-time edits
+      const meta = docMeta.get(documentId);
+      const lastUserId = lastEditors.get(documentId);
+      if (meta && lastUserId) {
+        logActivity({
+          workspace: meta.workspace,
+          user: lastUserId,
+          action: 'document.edited',
+          targetType: 'document',
+          targetId: documentId,
+        });
+        createSnapshot(documentId, content, meta.title, lastUserId);
+      }
     }
   } catch (err) {
     console.error(`Failed to persist Y.Doc for document ${documentId}:`, err);
@@ -138,6 +167,14 @@ export function applyUpdate(documentId: string, update: Uint8Array): boolean {
 }
 
 /**
+ * Track the last editing user for a document, so activity logs and
+ * snapshots can attribute edits to the correct user.
+ */
+export function setLastEditor(documentId: string, userId: string): void {
+  lastEditors.set(documentId, userId);
+}
+
+/**
  * Get the full encoded state of a document's Y.Doc for initial sync.
  */
 export function getFullState(documentId: string): Uint8Array | null {
@@ -151,6 +188,30 @@ export function getFullState(documentId: string): Uint8Array | null {
  */
 export function hasYDoc(documentId: string): boolean {
   return ydocs.has(documentId);
+}
+
+/**
+ * Reload a Y.Doc from the current MongoDB state.
+ * Destroys the existing Y.Doc, loads fresh content from the database,
+ * and returns the encoded state for broadcasting to clients.
+ * Used after version restore to sync all connected clients.
+ */
+export async function reloadFromDatabase(documentId: string): Promise<Uint8Array | null> {
+  const timer = saveTimers.get(documentId);
+  if (timer) {
+    clearInterval(timer);
+    saveTimers.delete(documentId);
+  }
+
+  const oldYdoc = ydocs.get(documentId);
+  if (oldYdoc) {
+    oldYdoc.destroy();
+    ydocs.delete(documentId);
+  }
+
+  // Re-create from MongoDB
+  const ydoc = await getOrCreateYDoc(documentId);
+  return getFullState(documentId);
 }
 
 /**
